@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 # blinktcpus.py - per-CPU % display for Pimoroni's Blinkt! colour LEDs. Must be run sudo (!?)
 # Viridis colour values from https://github.com/sjmgarnier/viridisLite/blob/master/R/zzz.R
 
