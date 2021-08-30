@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# blinktheat.py - CPU temp display for Pimoroni's Blinkt! colour LEDs. Must be run sudo (!?)
+# blinkttop.py - multi-metric display for Pimoroni's Blinkt! colour LEDs. Must be run sudo (!?)
 # Viridis colour values from https://github.com/sjmgarnier/viridisLite/blob/master/R/zzz.R
 
 import sys
@@ -8,26 +8,47 @@ import math
 import psutil
 import blinkt
 
-TEMPLO = 35 # Low temperature range, deg C
-TEMPHI = 65 # High temperature range, deg C
 BRIGHTNESS_DAY = 0.25  # Day brightness
 BRIGHTNESS_NIGHT = 0.1 # Night brightness. Lowest it seems to go is 0.033
 RGBMAX_DAY = 64 	   # RGBMAX must be in [0,255]
 RGBMAX_NIGHT = 16 	   # RGBMAX must be in [0,255]
-UPDATE = 5 			   # Update frequency in seconds
+UPDATE_SECONDS = 0.2 	   # Update frequency in seconds
+CYCLE_SECONDS = 5 	   # Frequency to cycle between displays
+# Typical values for my heatsink-only rpi
+HEAT_MIN = 35
+HEAT_MAX = 65
+# For net: just use Ookla - https://speedtest.net
+NET_UL = 10/2*1024*1024 # Half of max
+NET_DL = 25/2*1024*1024 # Half of max
+# For disk: use fio - see https://ibug.io/blog/2019/09/raspberry-pi-4-review-benchmark/
+# 	fio --loops=5 --size=20m --filename=fiotest.tmp --stonewall --ioengine=libaio --direct=1 --name=512Kread --bs=512k --rw=randread  --name=512Kwrite --bs=512k --rw=randwrite
+DISK_R = 41/3*1024*1024 # Third of max
+DISK_W = 17/3*1024*1024 # Third of max
 
-def collect():
+def collect_cpu():
+	"""Fetch per-CPU utilization %"""
+	cpu = psutil.cpu_percent(percpu = True)
+	return cpu
+
+def collect_mem():
+	"""Fetch memory utilization %"""
+	mem = psutil.virtual_memory().percent
+	return mem
+
+def collect_disk():
+	"""Fetch disk usage"""
+	disk = [psutil.disk_io_counters().read_bytes, psutil.disk_io_counters().read_bytes]
+	return disk
+
+def collect_net():
+	"""Fetch network utilization"""
+	net = [psutil.net_io_counters().bytes_recv, psutil.net_io_counters().bytes_sent]
+	return net
+
+def collect_heat():
 	"""Fetch CPU temperature"""
-	temp = psutil.sensors_temperatures()['cpu_thermal'][0].current
-	return temp
-
-def ccalc_lolcat(x, rgbmax):
-	# lolcat https://github.com/busyloop/lolcat/blob/master/lib/lolcat/lol.rb
-	freq = 18
-	red = math.sin(freq*x + 0) * rgbmax + rgbmax
-	green = math.sin(freq*x + 2*math.pi/3) * rgbmax + rgbmax
-	blue = math.sin(freq*x + 4*math.pi/3) * rgbmax + rgbmax
-	return [red,blue,green]
+	heat = psutil.sensors_temperatures()['cpu_thermal'][0].current
+	return heat
 
 def ccalc_viridis(x, rgbmax):
 	"""viridis colour map"""
@@ -53,25 +74,26 @@ def ccalc_turbo(x, rgbmax):
 	i = int(round(x * 255, 0))
 	return [r[i]*rgbmax, g[i]*rgbmax, b[i]*rgbmax]
 
-def update_pixels(fill, r, g, b):
+def update_pixels(rgbarr):
 	"""Colour the Blinkt! pixels"""
-	cut = int(round(fill * blinkt.NUM_PIXELS, 0))
-	for i in range(0,cut):                 # Fill these pixels with our colour
+	for i in range(len(rgbarr)):
+		r, g, b = rgbarr[i]
 		blinkt.set_pixel(i, r, g, b)
-	for i in range(cut,blinkt.NUM_PIXELS): # Blank the remaining pixels
-		blinkt.set_pixel(i, 0, 0, 0)
 	blinkt.show()
 
 if __name__ == '__main__':
 
-	ccalcdict = {'viridis':ccalc_viridis, 'plasma':ccalc_plasma, 'turbo':ccalc_turbo, 'lolcat':ccalc_lolcat}
-	ccalc = ccalc_lolcat     # Default colour calc
+	ccalcdict = {'viridis':ccalc_viridis, 'plasma':ccalc_plasma, 'turbo':ccalc_turbo}
+	ccalc = ccalc_turbo      # Default colour calc
 	if (len(sys.argv) >= 2): # Check if a colour scheme is specified
 		if (sys.argv[1] in ccalcdict):
 			ccalc = ccalcdict[sys.argv[1]]
 		else:
-			print("Usage: python3 blinktheat.py [viridis|plasma|turbo|lolcat]")
+			print("Usage: python3 blinkttop.py [viridis|plasma|turbo]")
 			quit()
+
+	dr, dw = collect_disk() # Disk read, write - initial value
+	nd, nu = collect_net()  # Net upload, download - initial value
 
 	while True:
 		# Adjust brightness according to time
@@ -83,10 +105,46 @@ if __name__ == '__main__':
 			blinkt.set_brightness(BRIGHTNESS_NIGHT)
 			rgbmax = RGBMAX_NIGHT
 
-		# Collect CPU temp and update pixels
-		sample = collect()
-		scaled = min(max(sample,TEMPLO)-TEMPLO,TEMPHI-TEMPLO)/(TEMPHI-TEMPLO) # Scale temperature to [0,1]
-		r, g, b = ccalc(scaled, rgbmax)
-		#print("Temp: " + str(round(sample,4)) + ", Scaled: " + str(round(scaled,4)) + ", R: " + str(r) + ", G: " + str(g) + ", B:" + str(b))
-		update_pixels(scaled, r, g, b)
-		time.sleep(UPDATE)
+		# Save last stat snapshots for IO measures
+		drl, dwl = dr, dw
+		ndl, nul = nd, nu
+
+		# Collect stats
+		cpu = collect_cpu()
+		mem = collect_mem()
+		heat = collect_heat()
+		dr, dw = collect_disk() # Disk read, write
+		nd, nu = collect_net()  # Net upload, download
+
+		# Scale values
+		scaled_cpu = [max(min(x/100,1),0) for x in cpu]
+		scaled_mem = max(min(mem/100,1),0)
+		scaled_disk = [abs(min((drl-dr) / UPDATE_SECONDS, DISK_R) / DISK_R),
+					   abs(min((dwl-dw) / UPDATE_SECONDS, DISK_W) / DISK_W)]
+		scaled_net  = [abs(min((ndl-nd) / UPDATE_SECONDS, NET_DL) / NET_DL),
+					   abs(min((nul-nu) / UPDATE_SECONDS, NET_UL) / NET_UL)]
+		scaled_heat = min(max(heat,HEAT_MIN)-HEAT_MIN,HEAT_MAX-HEAT_MIN)/(HEAT_MAX-HEAT_MIN)
+
+		# Display 
+		if math.sin(math.pi * time.time() / CYCLE_SECONDS) > 0: # Display mem, disk
+			display = ([ccalc(x,rgbmax) for x in scaled_cpu] +
+					   [[0,0,0]] +
+					   [ccalc(x,rgbmax) for x in [scaled_mem, scaled_disk[0], scaled_disk[1]]])
+			update_pixels(display)
+		else:													# Display heat, net
+			display = ([ccalc(x,rgbmax) for x in scaled_cpu] +
+					   [[rgbmax/2,rgbmax/2,rgbmax/2]] +
+					   [ccalc(x,rgbmax) for x in [scaled_heat, scaled_net[0], scaled_net[1]]])
+			update_pixels(display)
+		
+		#print("###"")
+		#print("CPU %s: " + str([str(x) + "%" for x in cpu]) + ", Scaled: " + str([round(x,1) for x in scaled_cpu]))
+		#print("Mem: " + str(round(mem,1)) + ", Scaled: " + str(round(scaled_mem,1)))
+		#print("Disk R/W: " + str(round(abs(drl-dr)/1024/1024,1)) + "/" + str(round(abs(dwl-dw)/1024/1024,1)) + 
+		#	   ", Scaled R/W: " + str(round(scaled_disk[0],1)) + "/" + str(round(scaled_disk[1],1)))
+		#print("Net D/U: " + str(round(abs(ndl-nd)/1024/1024,1)) + "/" + str(round(abs(nul-nu)/1024/1024,1)) + 
+		#	   ", Scaled D/U: " + str(round(scaled_net[0],1)) + "/" + str(round(scaled_net[1],1)))
+		#print("Temp: " + str(round(heat,1)) + ", Scaled: " + str(round(scaled_heat,1)))
+
+		# Repeat
+		time.sleep(UPDATE_SECONDS)

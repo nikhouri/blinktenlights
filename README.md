@@ -8,3 +8,4 @@ Display some diagnostic info using Pimoroni's excellent [Blinkt!](https://shop.p
 
 * `blinktheat.py` - CPU tempurature bar
 * `blinktcpus.py` - per-core CPU load (pictured) 
+* `blinkttop.py` - CPU load, memory, disk, network, CPU temp
