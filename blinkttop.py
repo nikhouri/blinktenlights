@@ -12,7 +12,7 @@ BRIGHTNESS_DAY = 0.25  # Day brightness
 BRIGHTNESS_NIGHT = 0.1 # Night brightness. Lowest it seems to go is 0.033
 RGBMAX_DAY = 64 	   # RGBMAX must be in [0,255]
 RGBMAX_NIGHT = 16 	   # RGBMAX must be in [0,255]
-UPDATE_SECONDS = 0.2 	   # Update frequency in seconds
+UPDATE_SECONDS = 0.5 	   # Update frequency in seconds
 CYCLE_SECONDS = 5 	   # Frequency to cycle between displays
 # Typical values for my heatsink-only rpi
 HEAT_MIN = 35
