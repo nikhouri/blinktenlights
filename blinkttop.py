@@ -119,10 +119,10 @@ if __name__ == '__main__':
 		# Scale values
 		scaled_cpu = [max(min(x/100,1),0) for x in cpu]
 		scaled_mem = max(min(mem/100,1),0)
-		scaled_disk = [abs(min((drl-dr) / UPDATE_SECONDS, DISK_R) / DISK_R),
-					   abs(min((dwl-dw) / UPDATE_SECONDS, DISK_W) / DISK_W)]
-		scaled_net  = [abs(min((ndl-nd) / UPDATE_SECONDS, NET_DL) / NET_DL),
-					   abs(min((nul-nu) / UPDATE_SECONDS, NET_UL) / NET_UL)]
+		scaled_disk = [max(min((drl-dr) / UPDATE_SECONDS, DISK_R) / DISK_R, 0),
+					   max(min((dwl-dw) / UPDATE_SECONDS, DISK_W) / DISK_W, 0)]
+		scaled_net  = [max(min((ndl-nd) / UPDATE_SECONDS, NET_DL) / NET_DL, 0),
+					   max(min((nul-nu) / UPDATE_SECONDS, NET_UL) / NET_UL, 0)]
 		scaled_heat = min(max(heat,HEAT_MIN)-HEAT_MIN,HEAT_MAX-HEAT_MIN)/(HEAT_MAX-HEAT_MIN)
 
 		# Display 
