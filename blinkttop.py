@@ -10,7 +10,7 @@ import blinkt
 
 BRIGHTNESS_DAY = 0.25  # Day brightness
 BRIGHTNESS_NIGHT = 0.1 # Night brightness. Lowest it seems to go is 0.033
-RGBMAX_DAY = 64 	   # RGBMAX must be in [0,255]
+RGBMAX_DAY = 32 	   # RGBMAX must be in [0,255]
 RGBMAX_NIGHT = 16 	   # RGBMAX must be in [0,255]
 UPDATE_SECONDS = 0.5 	   # Update frequency in seconds
 CYCLE_SECONDS = 5 	   # Frequency to cycle between displays
@@ -119,10 +119,10 @@ if __name__ == '__main__':
 		# Scale values
 		scaled_cpu = [max(min(x/100,1),0) for x in cpu]
 		scaled_mem = max(min(mem/100,1),0)
-		scaled_disk = [max(min((drl-dr) / UPDATE_SECONDS, DISK_R) / DISK_R, 0),
-					   max(min((dwl-dw) / UPDATE_SECONDS, DISK_W) / DISK_W, 0)]
-		scaled_net  = [max(min((ndl-nd) / UPDATE_SECONDS, NET_DL) / NET_DL, 0),
-					   max(min((nul-nu) / UPDATE_SECONDS, NET_UL) / NET_UL, 0)]
+		scaled_disk = [max(min((dr-drl) / UPDATE_SECONDS, DISK_R) / DISK_R, 0),
+					   max(min((dw-dwl) / UPDATE_SECONDS, DISK_W) / DISK_W, 0)]
+		scaled_net  = [max(min((nd-ndl) / UPDATE_SECONDS, NET_DL) / NET_DL, 0),
+					   max(min((nu-nul) / UPDATE_SECONDS, NET_UL) / NET_UL, 0)]
 		scaled_heat = min(max(heat,HEAT_MIN)-HEAT_MIN,HEAT_MAX-HEAT_MIN)/(HEAT_MAX-HEAT_MIN)
 
 		# Display 
@@ -137,12 +137,12 @@ if __name__ == '__main__':
 					   [ccalc(x,rgbmax) for x in [scaled_heat, scaled_net[0], scaled_net[1]]])
 			update_pixels(display)
 		
-		#print("###"")
+		#print("###")
 		#print("CPU %s: " + str([str(x) + "%" for x in cpu]) + ", Scaled: " + str([round(x,1) for x in scaled_cpu]))
 		#print("Mem: " + str(round(mem,1)) + ", Scaled: " + str(round(scaled_mem,1)))
 		#print("Disk R/W: " + str(round(abs(drl-dr)/1024/1024,1)) + "/" + str(round(abs(dwl-dw)/1024/1024,1)) + 
 		#	   ", Scaled R/W: " + str(round(scaled_disk[0],1)) + "/" + str(round(scaled_disk[1],1)))
-		#print("Net D/U: " + str(round(abs(ndl-nd)/1024/1024,1)) + "/" + str(round(abs(nul-nu)/1024/1024,1)) + 
+		#print("Net D/U: " + str(round(abs(ndl-nd)/1024/1024/UPDATE_SECONDS,1)) + "/" + str(round(abs(nul-nu)/1024/1024/UPDATE_SECONDS,1)) + 
 		#	   ", Scaled D/U: " + str(round(scaled_net[0],1)) + "/" + str(round(scaled_net[1],1)))
 		#print("Temp: " + str(round(heat,1)) + ", Scaled: " + str(round(scaled_heat,1)))
 
