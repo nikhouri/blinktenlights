@@ -125,25 +125,19 @@ if __name__ == '__main__':
 					   max(min((nu-nul) / UPDATE_SECONDS, NET_UL) / NET_UL, 0)]
 		scaled_heat = min(max(heat,HEAT_MIN)-HEAT_MIN,HEAT_MAX-HEAT_MIN)/(HEAT_MAX-HEAT_MIN)
 
-		# Display 
-		if math.sin(math.pi * time.time() / CYCLE_SECONDS) > 0: # Display mem, disk
-			display = ([ccalc(x,rgbmax) for x in scaled_cpu] +
-					   [[0,0,0]] +
-					   [ccalc(x,rgbmax) for x in [scaled_mem, scaled_disk[0], scaled_disk[1]]])
-			update_pixels(display)
-		else:													# Display heat, net
-			display = ([ccalc(x,rgbmax) for x in scaled_cpu] +
-					   [[rgbmax/2,rgbmax/2,rgbmax/2]] +
-					   [ccalc(x,rgbmax) for x in [scaled_heat, scaled_net[0], scaled_net[1]]])
-			update_pixels(display)
+		# Display values -- take the max of disk/net
+		display = [ccalc(x,rgbmax) for x in 
+					scaled_cpu + [scaled_mem, max(scaled_disk[0], scaled_disk[1]), 
+					max(scaled_net[0], scaled_net[1]), scaled_heat]]
+		update_pixels(display)
 		
 		#print("###")
 		#print("CPU %s: " + str([str(x) + "%" for x in cpu]) + ", Scaled: " + str([round(x,1) for x in scaled_cpu]))
 		#print("Mem: " + str(round(mem,1)) + ", Scaled: " + str(round(scaled_mem,1)))
-		#print("Disk R/W: " + str(round(abs(drl-dr)/1024/1024,1)) + "/" + str(round(abs(dwl-dw)/1024/1024,1)) + 
-		#	   ", Scaled R/W: " + str(round(scaled_disk[0],1)) + "/" + str(round(scaled_disk[1],1)))
-		#print("Net D/U: " + str(round(abs(ndl-nd)/1024/1024/UPDATE_SECONDS,1)) + "/" + str(round(abs(nul-nu)/1024/1024/UPDATE_SECONDS,1)) + 
-		#	   ", Scaled D/U: " + str(round(scaled_net[0],1)) + "/" + str(round(scaled_net[1],1)))
+		#print("Disk R/W: " + str(round(abs(drl-dr)/1024/1024,1)) + "MB/" + str(round(abs(dwl-dw)/1024/1024,1)) + 
+		#	   "MB, Scaled R/W: " + str(round(scaled_disk[0],1)) + "/" + str(round(scaled_disk[1],1)))
+		#print("Net D/U: " + str(round(abs(ndl-nd)/1024/1024/UPDATE_SECONDS,1)) + "MB/" + str(round(abs(nul-nu)/1024/1024/UPDATE_SECONDS,1)) + 
+		#	   "MB, Scaled D/U: " + str(round(scaled_net[0],1)) + "/" + str(round(scaled_net[1],1)))
 		#print("Temp: " + str(round(heat,1)) + ", Scaled: " + str(round(scaled_heat,1)))
 
 		# Repeat
